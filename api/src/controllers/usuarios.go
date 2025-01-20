@@ -1,9 +1,34 @@
 package controllers
 
-import "net/http"
+import (
+	"encoding/json"
+	"io/ioutil"
+	"log"
+	"net/http"
+
+	"github.com/fabiokusaba/devbook/api/src/banco"
+	"github.com/fabiokusaba/devbook/api/src/modelos"
+	"github.com/fabiokusaba/devbook/api/src/repositorios"
+)
 
 func CriarUsuario(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Criando usuário"))
+	corpoRequest, erro := ioutil.ReadAll(r.Body)
+	if erro != nil {
+		log.Fatal(erro)
+	}
+
+	var usuario modelos.Usuario
+	if erro = json.Unmarshal(corpoRequest, &usuario); erro != nil {
+		log.Fatal(erro)
+	}
+
+	db, erro := banco.Conectar()
+	if erro != nil {
+		log.Fatal(erro)
+	}
+
+	repositorio := repositorios.NovoRepositorioDeUsuarios(db)
+	repositorio.Criar(usuario)
 }
 
 func BuscarUsuarios(w http.ResponseWriter, r *http.Request) {
