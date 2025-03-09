@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/fabiokusaba/devbook/api/src/autenticacao"
 	"github.com/fabiokusaba/devbook/api/src/banco"
 	"github.com/fabiokusaba/devbook/api/src/modelos"
 	"github.com/fabiokusaba/devbook/api/src/repositorios"
@@ -44,5 +45,6 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte("Você está logado! Parabéns!"))
+	token, _ := autenticacao.CriarToken(usuarioSalvoNoBanco.ID)
+	w.Write([]byte(token))
 }
