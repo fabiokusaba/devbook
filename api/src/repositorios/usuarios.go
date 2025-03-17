@@ -146,3 +146,18 @@ func (repositorio Usuarios) BuscarPorEmail(email string) (modelos.Usuario, error
 
 	return usuario, nil
 }
+
+func (repositorio Usuarios) Seguir(usuarioId, seguidorId uint64) error {
+	// Com a cláusula "ignore" impedimos a inserção de um dado que já esteja na tabela
+	statement, erro := repositorio.db.Prepare("insert ignore into seguidores (usuario_id, seguidor_id) values (?, ?)")
+	if erro != nil {
+		return erro
+	}
+	defer statement.Close()
+
+	if _, erro = statement.Exec(usuarioId, seguidorId); erro != nil {
+		return erro
+	}
+
+	return nil
+}
