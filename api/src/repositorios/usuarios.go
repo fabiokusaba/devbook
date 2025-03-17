@@ -175,3 +175,48 @@ func (repositorio Usuarios) PararDeSeguir(usuarioId, seguidorId uint64) error {
 
 	return nil
 }
+
+func (repositorio Usuarios) BuscarSeguidores(usuarioId uint64) ([]modelos.Usuario, error) {
+	// O que essa query está fazendo é um join entre a tabela de usuarios e a tabela de seguidores porque eu tenho a informação
+	// de quem segue quem na tabela de seguidores só que as informações desses usuários estão na tabela de usuarios
+	// Nesse caso, estou juntando essas duas tabelas onde o id do usuario seja igual ao id do seguidor, mas como não quero que
+	// ele me traga todas as linhas eu quero que ele faça um where e me traga apenas onde o usuario id é igual ao que estamos
+	// recebendo
+	linhas, erro := repositorio.db.Query(`
+		select u.id, u.nome, u.nick, u.email, u.criado_em
+		from usuarios u
+		inner join seguidores s
+		on u.id = s.seguidor_id
+		where s.usuario_id = ?`,
+		usuarioId,
+	)
+	if erro != nil {
+		return nil, erro
+	}
+	defer linhas.Close()
+
+	// Criando slice de Usuario
+	var seguidores []modelos.Usuario
+
+	// Iterando pelas linhas
+	for linhas.Next() {
+		// Criando uma variável seguidor do tipo Usuario
+		var seguidor modelos.Usuario
+
+		// Passando os dados para a variável
+		if erro = linhas.Scan(
+			&seguidor.ID,
+			&seguidor.Nome,
+			&seguidor.Nick,
+			&seguidor.Email,
+			&seguidor.CriadoEm,
+		); erro != nil {
+			return nil, erro
+		}
+
+		// Adicionando o seguidor ao nosso slice de seguidores
+		seguidores = append(seguidores, seguidor)
+	}
+
+	return seguidores, nil
+}
