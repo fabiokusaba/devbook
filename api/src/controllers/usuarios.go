@@ -13,6 +13,7 @@ import (
 	"github.com/fabiokusaba/devbook/api/src/modelos"
 	"github.com/fabiokusaba/devbook/api/src/repositorios"
 	"github.com/fabiokusaba/devbook/api/src/respostas"
+	"github.com/fabiokusaba/devbook/api/src/seguranca"
 	"github.com/gorilla/mux"
 )
 
@@ -331,4 +332,80 @@ func BuscarSeguindo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respostas.JSON(w, http.StatusOK, usuarios)
+}
+
+func AtualizarSenha(w http.ResponseWriter, r *http.Request) {
+	// Pegando o usuario id que está no token
+	usuarioIdNoToken, erro := autenticacao.ExtrairUsuarioId(r)
+	if erro != nil {
+		respostas.Erro(w, http.StatusUnauthorized, erro)
+		return
+	}
+
+	// Pegando o usuario id que está no parâmetro
+	parametros := mux.Vars(r)
+	usuarioIdNoParametro, erro := strconv.ParseUint(parametros["usuarioId"], 10, 64)
+	if erro != nil {
+		respostas.Erro(w, http.StatusBadRequest, erro)
+		return
+	}
+
+	// Comparando se os ids são diferentes
+	if usuarioIdNoToken != usuarioIdNoParametro {
+		respostas.Erro(w, http.StatusForbidden, errors.New("Não é possível atualizar a senha de um usuário que não seja o seu"))
+		return
+	}
+
+	// A partir daqui já consigo garantir que o usuário que está fazendo a requisição é o usuário que vai ter a senha alterada
+	// Lendo o corpo da requisição
+	corpoRequisicao, erro := ioutil.ReadAll(r.Body)
+
+	// Criando uma variávle do tipo Senha
+	var senha modelos.Senha
+
+	// Unmarshal do corpo da requisição para dentro da variável senha
+	if erro = json.Unmarshal(corpoRequisicao, &senha); erro != nil {
+		respostas.Erro(w, http.StatusBadRequest, erro)
+		return
+	}
+
+	// Abrindo a conexão com o banco de dados
+	db, erro := banco.Conectar()
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	defer db.Close()
+
+	// Criando o repositório
+	repositorio := repositorios.NovoRepositorioDeUsuarios(db)
+
+	// Verificando se a senha que está vindo no campo "atual" corresponde a senha salva no banco
+	// Primeiro buscar a senha salva no banco
+	senhaSalvaNoBanco, erro := repositorio.BuscarSenha(usuarioIdNoParametro)
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+
+	// Segundo fazer a comparação das senhas
+	if erro = seguranca.VerificarSenha(senhaSalvaNoBanco, senha.Atual); erro != nil {
+		respostas.Erro(w, http.StatusUnauthorized, errors.New("A senha atual não condiz com a que está salva no banco"))
+		return
+	}
+
+	// Passado esse ponto já tenho a garantia que a senha está correta, podemos agora fazer o hash da nova senha
+	senhaNovaComHash, erro := seguranca.Hash(senha.Nova)
+	if erro != nil {
+		respostas.Erro(w, http.StatusBadRequest, erro)
+		return
+	}
+
+	// Agora podemos atualizar a senha nova no banco
+	if erro = repositorio.AtualizarSenha(usuarioIdNoParametro, string(senhaNovaComHash)); erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+
+	respostas.JSON(w, http.StatusNoContent, nil)
 }
