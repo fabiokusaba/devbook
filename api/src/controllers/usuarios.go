@@ -302,3 +302,33 @@ func BuscarSeguidores(w http.ResponseWriter, r *http.Request) {
 
 	respostas.JSON(w, http.StatusOK, seguidores)
 }
+
+func BuscarSeguindo(w http.ResponseWriter, r *http.Request) {
+	// Buscando o usuario id que está nos parâmetros
+	parametros := mux.Vars(r)
+	usuarioId, erro := strconv.ParseUint(parametros["usuarioId"], 10, 64)
+	if erro != nil {
+		respostas.Erro(w, http.StatusBadRequest, erro)
+		return
+	}
+
+	// Abrindo conexão com o banco de dados
+	db, erro := banco.Conectar()
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	defer db.Close()
+
+	// Criando o repositório
+	repositorio := repositorios.NovoRepositorioDeUsuarios(db)
+
+	// Executando o método
+	usuarios, erro := repositorio.BuscarSeguindo(usuarioId)
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+
+	respostas.JSON(w, http.StatusOK, usuarios)
+}
