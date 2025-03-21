@@ -2,15 +2,16 @@ package controllers
 
 import (
 	"encoding/json"
+	"io/ioutil"
+	"net/http"
+	"strconv"
+
 	"github.com/fabiokusaba/devbook/api/src/autenticacao"
 	"github.com/fabiokusaba/devbook/api/src/banco"
 	"github.com/fabiokusaba/devbook/api/src/modelos"
 	"github.com/fabiokusaba/devbook/api/src/repositorios"
 	"github.com/fabiokusaba/devbook/api/src/respostas"
 	"github.com/gorilla/mux"
-	"io/ioutil"
-	"net/http"
-	"strconv"
 )
 
 func CriarPublicacao(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +57,29 @@ func CriarPublicacao(w http.ResponseWriter, r *http.Request) {
 	respostas.JSON(w, http.StatusCreated, publicacao)
 }
 
-func BuscarPublicacoes(w http.ResponseWriter, r *http.Request) {}
+func BuscarPublicacoes(w http.ResponseWriter, r *http.Request) {
+	usuarioID, erro := autenticacao.ExtrairUsuarioId(r)
+	if erro != nil {
+		respostas.Erro(w, http.StatusUnauthorized, erro)
+		return
+	}
+
+	db, erro := banco.Conectar()
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+	defer db.Close()
+
+	repositorio := repositorios.NovoRepositorioDePublicacoes(db)
+	publicacoes, erro := repositorio.Buscar(usuarioID)
+	if erro != nil {
+		respostas.Erro(w, http.StatusInternalServerError, erro)
+		return
+	}
+
+	respostas.JSON(w, http.StatusOK, publicacoes)
+}
 
 func BuscarPublicacao(w http.ResponseWriter, r *http.Request) {
 	parametros := mux.Vars(r)
